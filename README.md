@@ -105,6 +105,107 @@ kitten-tts ./models/kitten-tts-mini "" --list-voices
 
 This repo also includes a small installer and wrapper script for a friendlier end-user command named `kiki`.
 
+If you already downloaded a pre-built `kitten-tts` binary from Releases, you do not need Rust or `cargo`.
+
+#### Fastest Path: Download Binary and Generate Audio from Markdown
+
+1. Clone this repo:
+
+```bash
+git clone git@github.com:aresbit/kiki-tts.git
+cd kiki-tts
+```
+
+2. Install `espeak-ng`:
+
+```bash
+# macOS
+brew install espeak-ng
+
+# Ubuntu/Debian
+sudo apt-get install -y espeak-ng
+```
+
+3. Download a pre-built `kitten-tts` binary from the Releases page and place it at the repo root as `./kitten-tts`:
+
+```bash
+chmod +x ./kitten-tts
+```
+
+4. Download the model files:
+
+```bash
+mkdir -p models/kitten-tts-mini
+
+for FILE in config.json kitten_tts_mini_v0_8.onnx voices.npz; do
+  curl -L -o "models/kitten-tts-mini/$FILE" \
+    "https://huggingface.co/KittenML/kitten-tts-mini-0.8/resolve/main/$FILE"
+done
+```
+
+5. Install the `kiki` wrapper and model into your local prefix:
+
+```bash
+make install PREFIX="$HOME/.local" BIN_SRC=./kitten-tts
+```
+
+6. Make sure your shell can find `$HOME/.local/bin`:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+7. Convert a Markdown file into audio:
+
+```bash
+kiki article.md --voice Kiki --output article.wav
+```
+
+By default, `kiki` strips common Markdown formatting before sending text into TTS.
+
+#### More End-to-End Examples
+
+Create a sample Markdown file:
+
+```bash
+cat > sample.md <<'EOF'
+# Hello
+
+This is a Markdown document.
+
+- It has bullets
+- It has formatting
+
+Kiki should read the text, not the markup.
+EOF
+```
+
+Generate audio:
+
+```bash
+kiki sample.md --voice Kiki --output sample.wav
+```
+
+List voices:
+
+```bash
+kiki --list-voices
+```
+
+Read raw text directly:
+
+```bash
+kiki --text "Hello from Kiki." --voice Kiki --output hello.wav
+```
+
+Keep Markdown markup instead of cleaning it:
+
+```bash
+kiki sample.md --raw --output raw.wav
+```
+
+#### If You Prefer to Build from Source
+
 After building the Rust binary and downloading a model into `models/kitten-tts-mini`, install both the binary and wrapper:
 
 ```bash
@@ -117,22 +218,6 @@ That installs:
 - `kitten-tts` to `$PREFIX/bin/kitten-tts`
 - `kiki` to `$PREFIX/bin/kiki`
 - model files to `$PREFIX/share/kiki/models/kitten-tts-mini`
-
-Examples:
-
-```bash
-# Read Markdown, strip formatting, and write sample.wav
-kiki sample.md --voice Kiki --output sample.wav
-
-# Read raw text directly
-kiki --text "Hello from Kiki." --voice Kiki --output hello.wav
-
-# Keep Markdown markup verbatim instead of cleaning it
-kiki sample.md --raw --output raw.wav
-
-# List installed voices
-kiki --list-voices
-```
 
 ### Available Voices
 
