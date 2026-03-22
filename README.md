@@ -101,6 +101,39 @@ kitten-tts ./models/kitten-tts-mini "Hello, world!" --voice Luna --speed 1.2 --o
 kitten-tts ./models/kitten-tts-mini "" --list-voices
 ```
 
+### Markdown-Friendly `kiki` Wrapper
+
+This repo also includes a small installer and wrapper script for a friendlier end-user command named `kiki`.
+
+After building the Rust binary and downloading a model into `models/kitten-tts-mini`, install both the binary and wrapper:
+
+```bash
+cargo build --release
+make install PREFIX="$HOME/.local"
+```
+
+That installs:
+
+- `kitten-tts` to `$PREFIX/bin/kitten-tts`
+- `kiki` to `$PREFIX/bin/kiki`
+- model files to `$PREFIX/share/kiki/models/kitten-tts-mini`
+
+Examples:
+
+```bash
+# Read Markdown, strip formatting, and write sample.wav
+kiki sample.md --voice Kiki --output sample.wav
+
+# Read raw text directly
+kiki --text "Hello from Kiki." --voice Kiki --output hello.wav
+
+# Keep Markdown markup verbatim instead of cleaning it
+kiki sample.md --raw --output raw.wav
+
+# List installed voices
+kiki --list-voices
+```
+
 ### Available Voices
 
 | Voice | Gender | Description |

@@ -1,0 +1,203 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PREFIX="@PREFIX@"
+MODEL_NAME="@MODEL_NAME@"
+MODEL_DIR="${PREFIX}/share/kiki/models/${MODEL_NAME}"
+TTS_BIN="${PREFIX}/bin/kitten-tts"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  kiki <input.md> [--voice NAME] [--speed N] [--output FILE.wav]
+  kiki --text "Hello, world!" [--voice NAME] [--speed N] [--output FILE.wav]
+  kiki --list-voices
+
+Options:
+  -m, --model-dir DIR   Override model directory
+  -v, --voice NAME      Voice name
+  -s, --speed N         Speech speed multiplier
+  -o, --output FILE     Output WAV path
+      --text TEXT       Read text directly instead of a file
+      --raw             Do not strip Markdown formatting
+      --no-clean        Forwarded to kitten-tts
+      --list-voices     List voices from the selected model
+  -h, --help            Show help
+EOF
+}
+
+fail() {
+  printf 'kiki: %s\n' "$*" >&2
+  exit 1
+}
+
+require_tool() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required tool: $1"
+}
+
+strip_markdown() {
+  local input=$1
+
+  awk '
+    BEGIN {
+      in_code = 0
+      blank = 0
+    }
+    /^```/ {
+      in_code = !in_code
+      next
+    }
+    in_code {
+      next
+    }
+    {
+      line = $0
+      sub(/^#{1,6}[[:space:]]+/, "", line)
+      sub(/^[[:space:]]*>[[:space:]]?/, "", line)
+      sub(/^[[:space:]]*[-*+][[:space:]]+/, "", line)
+      sub(/^[[:space:]]*[0-9]+\.[[:space:]]+/, "", line)
+      gsub(/!\[[^][]*\]\([^()]*\)/, "", line)
+      gsub(/\[([^][]+)\]\([^()]*\)/, "\\1", line)
+      gsub(/`([^`]*)`/, "\\1", line)
+      gsub(/\*\*([^*]+)\*\*/, "\\1", line)
+      gsub(/\*([^*]+)\*/, "\\1", line)
+      gsub(/__([^_]+)__/, "\\1", line)
+      gsub(/_([^_]+)_/, "\\1", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line == "" || line == "---") {
+        if (blank == 0) {
+          print ""
+        }
+        blank = 1
+        next
+      }
+      print line
+      blank = 0
+    }
+  ' "$input"
+}
+
+infer_output_path() {
+  local input=$1
+  local stem
+  stem=$(basename "$input")
+  stem=${stem%.*}
+  printf '%s.wav\n' "$stem"
+}
+
+voice=""
+speed=""
+output=""
+input_file=""
+text_input=""
+raw_mode=0
+extra_args=()
+
+while (($# > 0)); do
+  case "$1" in
+    -m|--model-dir)
+      (($# >= 2)) || fail "missing value for $1"
+      MODEL_DIR=$2
+      shift 2
+      ;;
+    -v|--voice)
+      (($# >= 2)) || fail "missing value for $1"
+      voice=$2
+      shift 2
+      ;;
+    -s|--speed)
+      (($# >= 2)) || fail "missing value for $1"
+      speed=$2
+      shift 2
+      ;;
+    -o|--output)
+      (($# >= 2)) || fail "missing value for $1"
+      output=$2
+      shift 2
+      ;;
+    --text)
+      (($# >= 2)) || fail "missing value for $1"
+      text_input=$2
+      shift 2
+      ;;
+    --raw)
+      raw_mode=1
+      shift
+      ;;
+    --no-clean|--list-voices)
+      extra_args+=("$1")
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      fail "unknown option: $1"
+      ;;
+    *)
+      if [[ -n $input_file ]]; then
+        fail "only one input file is supported"
+      fi
+      input_file=$1
+      shift
+      ;;
+  esac
+done
+
+if (($# > 0)); then
+  fail "unexpected extra arguments: $*"
+fi
+
+[[ -x $TTS_BIN ]] || fail "kitten-tts not found at $TTS_BIN"
+[[ -d $MODEL_DIR ]] || fail "model directory not found: $MODEL_DIR"
+
+if [[ " ${extra_args[*]} " == *" --list-voices "* ]]; then
+  exec "$TTS_BIN" "${extra_args[@]}" "$MODEL_DIR" "."
+fi
+
+if [[ -n $text_input && -n $input_file ]]; then
+  fail "use either an input file or --text, not both"
+fi
+
+if [[ -z $text_input && -z $input_file ]]; then
+  usage >&2
+  exit 1
+fi
+
+if [[ -n $input_file ]]; then
+  [[ -f $input_file ]] || fail "input file not found: $input_file"
+  if [[ -z $output ]]; then
+    output=$(infer_output_path "$input_file")
+  fi
+  if ((raw_mode)); then
+    text_input=$(cat "$input_file")
+  else
+    text_input=$(strip_markdown "$input_file")
+  fi
+fi
+
+if [[ -z $output ]]; then
+  output="output.wav"
+fi
+
+require_tool basename
+
+cmd=("$TTS_BIN" "$MODEL_DIR" "$text_input")
+
+if [[ -n $voice ]]; then
+  cmd+=("--voice" "$voice")
+fi
+
+if [[ -n $speed ]]; then
+  cmd+=("--speed" "$speed")
+fi
+
+cmd+=("--output" "$output")
+cmd+=("${extra_args[@]}")
+
+exec "${cmd[@]}"
