@@ -102,6 +102,70 @@ models/
 ./kitten-tts ./models/kitten-tts-mini "" --list-voices
 ```
 
+### Markdown-Friendly `kiki` Wrapper
+
+This repo also includes a small installer and wrapper script for a friendlier end-user command named `kiki`.
+
+**Install from source build:**
+
+```bash
+cargo build --release
+make install PREFIX="$HOME/.local"
+```
+
+**Or install with a pre-built binary:**
+
+```bash
+make install PREFIX="$HOME/.local" BIN_SRC=./kitten-tts
+```
+
+That installs:
+
+- `kitten-tts` to `$PREFIX/bin/kitten-tts`
+- `kiki` to `$PREFIX/bin/kiki`
+- model files to `$PREFIX/share/kiki/models/kitten-tts-mini`
+
+Make sure `$PREFIX/bin` is in your `PATH`:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Then convert Markdown files into audio:
+
+```bash
+# Create a sample Markdown file
+cat > sample.md <<'EOF'
+# Hello
+
+This is a Markdown document.
+
+- It has bullets
+- It has formatting
+
+Kiki should read the text, not the markup.
+EOF
+
+# Generate audio (Markdown formatting is stripped automatically)
+kiki sample.md --voice Kiki --output sample.wav
+```
+
+More examples:
+
+```bash
+# Read Markdown, strip formatting, and write sample.wav
+kiki sample.md --voice Kiki --output sample.wav
+
+# Read raw text directly
+kiki --text "Hello from Kiki." --voice Kiki --output hello.wav
+
+# Keep Markdown markup verbatim instead of cleaning it
+kiki sample.md --raw --output raw.wav
+
+# List installed voices
+kiki --list-voices
+```
+
 ### 5. Run the API Server
 
 Start the server with a model directory:

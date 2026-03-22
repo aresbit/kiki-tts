@@ -1,6 +1,7 @@
 /target
 Cargo.lock
 models/
+.local-test/
 *.wav
 *.ogg
 *.mp3
